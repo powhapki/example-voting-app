@@ -1,0 +1,66 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: result
+  namespace: voting-app
+  labels:
+    app: result
+    tier: frontend
+spec:
+  replicas: 3  # 레플리카 수 증가 (2 → 3)
+  selector:
+    matchLabels:
+      app: result
+  template:
+    metadata:
+      labels:
+        app: result
+        tier: frontend
+    spec:
+      containers:
+      - name: result-app
+        image: dockersamples/examplevotingapp_result:latest
+        ports:
+        - containerPort: 80
+          name: result-port
+        env:
+        - name: POSTGRES_HOST
+          value: db
+        - name: POSTGRES_PORT
+          value: "5432"
+        - name: POSTGRES_USER
+          value: postgres
+        - name: POSTGRES_PASSWORD
+          value: postgres
+        - name: POSTGRES_DB
+          value: postgres
+        # 데이터베이스 연결 풀 설정 추가
+        - name: DB_POOL_SIZE
+          value: "20"
+        - name: DB_POOL_TIMEOUT
+          value: "30"
+        resources:
+          requests:
+            cpu: 300m      # CPU 요청량 증가 (200m → 300m)
+            memory: 512Mi  # 메모리 요청량 증가 (256Mi → 512Mi)
+          limits:
+            cpu: 600m      # CPU 제한 증가 (400m → 600m)
+            memory: 1Gi    # 메모리 제한 증가 (512Mi → 1Gi)
+        # 프로브 설정 최적화
+        livenessProbe:
+          httpGet:
+            path: /
+            port: 80
+          initialDelaySeconds: 45  # 초기 지연 시간 증가 (30 → 45)
+          timeoutSeconds: 10       # 타임아웃 증가 (5 → 10)
+          periodSeconds: 30        # 체크 간격 증가
+          failureThreshold: 3
+        readinessProbe:
+          httpGet:
+            path: /
+            port: 80
+          initialDelaySeconds: 10  # 초기 지연 시간 증가 (5 → 10)
+          timeoutSeconds: 5
+          periodSeconds: 10        # 체크 간격 증가
+          failureThreshold: 3
+          successThreshold: 1

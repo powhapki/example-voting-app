@@ -1,0 +1,83 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: db
+  namespace: voting-app
+  labels:
+    app: db
+    tier: database
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: db
+  template:
+    metadata:
+      labels:
+        app: db
+        tier: database
+    spec:
+      containers:
+      - name: postgres
+        image: postgres:15-alpine
+        env:
+        - name: POSTGRES_USER
+          value: postgres
+        - name: POSTGRES_PASSWORD
+          value: postgres
+        - name: POSTGRES_DB
+          value: postgres
+        - name: PGDATA
+          value: /var/lib/postgresql/data/pgdata
+        # PostgreSQL 성능 튜닝 설정 추가
+        - name: POSTGRES_SHARED_PRELOAD_LIBRARIES
+          value: "pg_stat_statements"
+        - name: POSTGRES_MAX_CONNECTIONS
+          value: "200"
+        - name: POSTGRES_SHARED_BUFFERS
+          value: "256MB"
+        - name: POSTGRES_EFFECTIVE_CACHE_SIZE
+          value: "1GB"
+        - name: POSTGRES_MAINTENANCE_WORK_MEM
+          value: "64MB"
+        - name: POSTGRES_CHECKPOINT_COMPLETION_TARGET
+          value: "0.7"
+        - name: POSTGRES_WAL_BUFFERS
+          value: "16MB"
+        - name: POSTGRES_DEFAULT_STATISTICS_TARGET
+          value: "100"
+        ports:
+        - containerPort: 5432
+          name: postgres
+        volumeMounts:
+        - name: db-data
+          mountPath: /var/lib/postgresql/data
+        resources:
+          requests:
+            cpu: 200m      # CPU 요청량 증가 (100m → 200m)
+            memory: 512Mi  # 메모리 요청량 증가 (256Mi → 512Mi)
+          limits:
+            cpu: 1000m     # CPU 제한 증가 (500m → 1000m)
+            memory: 1Gi    # 메모리 제한 증가 (512Mi → 1Gi)
+        livenessProbe:
+          exec:
+            command:
+            - pg_isready
+            - -U
+            - postgres
+          initialDelaySeconds: 45  # 초기 지연 시간 증가 (30 → 45)
+          timeoutSeconds: 10       # 타임아웃 증가 (5 → 10)
+          periodSeconds: 30        # 체크 간격 증가
+        readinessProbe:
+          exec:
+            command:
+            - pg_isready
+            - -U
+            - postgres
+          initialDelaySeconds: 15  # 초기 지연 시간 증가 (5 → 15)
+          timeoutSeconds: 5
+          periodSeconds: 10        # 체크 간격 증가
+      volumes:
+      - name: db-data
+        emptyDir: 
+          sizeLimit: 5Gi  # 볼륨 크기 제한 설정
