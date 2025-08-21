@@ -106,11 +106,11 @@ jobs:
         kubectl apply -f custom-k8s-spec/
 
         echo "Waiting for deployments to be ready..."
-        kubectl rollout status deployment/vote --timeout=300s
-        kubectl rollout status deployment/result --timeout=300s
-        kubectl rollout status deployment/worker --timeout=300s
+        kubectl rollout status deployment/vote -n voting-app --timeout=300s
+        kubectl rollout status deployment/result -n voting-app --timeout=300s
+        kubectl rollout status deployment/worker -n voting-app --timeout=300s
 
         echo "Deployment completed successfully!"
-        kubectl get pods -l app=vote
-        kubectl get pods -l app=result
-        kubectl get pods -l app=worker
+        kubectl get pods -l app=vote -n voting-app 
+        kubectl get pods -l app=result -n voting-app 
+        kubectl get pods -l app=worker -n voting-app 
