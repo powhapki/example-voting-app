@@ -1,0 +1,67 @@
+name: Deploy to AWS EKS
+
+on:
+  push:
+    branches: [ main ]
+
+jobs:
+  deploy:
+    name: Deploy voting app to EKS
+    runs-on: ubuntu-latest
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v3
+
+    - name: Configure AWS credentials
+      uses: aws-actions/configure-aws-credentials@v1
+      with:
+        aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+        aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+        aws-region: ${{ secrets.AWS_REGION }}
+
+    - name: Login to Amazon ECR
+      id: login-ecr
+      uses: aws-actions/amazon-ecr-login@v1
+
+    - name: Build, tag, and push Docker images
+      run: |
+        IMAGE_TAG=${{ github.sha }}
+        REPO=${{ secrets.ECR_REPOSITORY }}
+        REGISTRY=${{ steps.login-ecr.outputs.registry }}
+        docker build -t vote ./vote
+        docker tag vote $REGISTRY/$REPO:vote-$IMAGE_TAG
+        docker push $REGISTRY/$REPO:vote-$IMAGE_TAG
+        docker build -t result ./result
+        docker tag result $REGISTRY/$REPO:result-$IMAGE_TAG
+        docker push $REGISTRY/$REPO:result-$IMAGE_TAG
+
+    - name: Setup kubectl, aws-iam-authenticator
+      uses: kodermax/kubectl-aws-eks@v1
+      with:
+        args: version
+      env:
+        KUBE_CONFIG_DATA: ${{ secrets.KUBE_CONFIG_DATA }}
+
+    - name: Update image tags in K8s manifests
+      run: |
+        IMAGE_TAG=${{ github.sha }}
+        REPO=${{ secrets.ECR_REPOSITORY }}
+        REGISTRY=${{ steps.login-ecr.outputs.registry }}
+        sed -i -e "s|image:.*vote.*|image: $REGISTRY/$REPO:vote-$IMAGE_TAG|g" custome-k8s-spec/05-vote-deployment.yaml
+        sed -i -e "s|image:.*result.*|image: $REGISTRY/$REPO:result-$IMAGE_TAG|g" custome-k8s-spec/07-result-deployment.yaml
+        sed -i -e "s|image:.*result.*|image: $REGISTRY/$REPO:result-$IMAGE_TAG|g" custome-k8s-spec/10-result-deployment.yaml
+
+    - name: Deploy to EKS
+      uses: kodermax/kubectl-aws-eks@v1
+      env:
+        KUBE_CONFIG_DATA: ${{ secrets.KUBE_CONFIG_DATA }}
+      with:
+        args: apply -f custome-k8s-spec/
+
+    - name: Confirm rollout status
+      uses: kodermax/kubectl-aws-eks@v1
+      env:
+        KUBE_CONFIG_DATA: ${{ secrets.KUBE_CONFIG_DATA }}
+      with:
+        args: rollout status deployment/vote
