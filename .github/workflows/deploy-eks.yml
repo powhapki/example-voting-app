@@ -28,7 +28,7 @@ jobs:
     # 이미지 빌드 & Push
     - name: Build and Push Docker images
       run: |
-        IMAGE_TAG=${{ github.sha }}
+        IMAGE_TAG=${{ github.run_number }}
         REGION=ap-northeast-2
         REPO_URI=${{ secrets.ECR_REPOSITORY_URI }}
 
