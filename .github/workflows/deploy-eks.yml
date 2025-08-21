@@ -49,16 +49,30 @@ jobs:
         docker push $ECR_REPOSITORY:worker-$IMAGE_TAG
 
     # kubectl 설치 및 설정 (더 안정적인 방법)
+    - name: Configure AWS Credentials
+      uses: aws-actions/configure-aws-credentials@v3
+      with:
+        aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+        aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+        aws-region: ap-northeast-2
+    - name: Set up kubeconfig for EKS
+      run: |
+        # kubeconfig 설정
+        mkdir -p $HOME/.kube
+        #echo "${{ secrets.KUBE_CONFIG_DATA }}" | base64 --decode > $HOME/.kube/config
+        chmod 600 $HOME/.kube/config
+        aws eks update-kubeconfig --name mx4pc-cluster --region ap-northeast-2    
+
     - name: Install and configure kubectl
       run: |
         curl -LO "https://dl.k8s.io/release/$(curl -L -s https://dl.k8s.io/release/stable.txt)/bin/linux/amd64/kubectl"
         chmod +x kubectl
         sudo mv kubectl /usr/local/bin/
 
-        # kubeconfig 설정
-        mkdir -p $HOME/.kube
-        echo "${{ secrets.KUBE_CONFIG_DATA }}" | base64 --decode > $HOME/.kube/config
-        chmod 600 $HOME/.kube/config
+      # # kubeconfig 설정
+      # mkdir -p $HOME/.kube
+      # #echo "${{ secrets.KUBE_CONFIG_DATA }}" | base64 --decode > $HOME/.kube/config
+      # chmod 600 $HOME/.kube/config
 
         # EKS 클러스터 연결 확인
         kubectl version --client
