@@ -28,7 +28,6 @@ jobs:
     # 이미지 빌드 & Push
     - name: Build and Push Docker images
       env:
-        ECR_REGISTRY: ${{ steps.login-ecr.outputs.registry }}
         ECR_REPOSITORY: ${{ secrets.ECR_REPOSITORY }}
         IMAGE_TAG: ${{ github.run_number }}
       run: |
@@ -36,18 +35,18 @@ jobs:
         
         # Vote 이미지
         docker build -t vote ./vote
-        docker tag vote:latest $ECR_REGISTRY/$ECR_REPOSITORY:vote-$IMAGE_TAG
-        docker push $ECR_REGISTRY/$ECR_REPOSITORY:vote-$IMAGE_TAG
+        docker tag vote:latest $ECR_REPOSITORY:vote-$IMAGE_TAG
+        docker push $ECR_REPOSITORY:vote-$IMAGE_TAG
 
         # Result 이미지
         docker build -t result ./result
-        docker tag result:latest $ECR_REGISTRY/$ECR_REPOSITORY:result-$IMAGE_TAG
-        docker push $ECR_REGISTRY/$ECR_REPOSITORY:result-$IMAGE_TAG
+        docker tag result:latest $ECR_REPOSITORY:result-$IMAGE_TAG
+        docker push $ECR_REPOSITORY:result-$IMAGE_TAG
 
         # Worker 이미지
         docker build -t worker ./worker
-        docker tag worker:latest $ECR_REGISTRY/$ECR_REPOSITORY:worker-$IMAGE_TAG
-        docker push $ECR_REGISTRY/$ECR_REPOSITORY:worker-$IMAGE_TAG
+        docker tag worker:latest $ECR_REPOSITORY:worker-$IMAGE_TAG
+        docker push $ECR_REPOSITORY:worker-$IMAGE_TAG
 
     # kubectl 설치 및 설정 (더 안정적인 방법)
     - name: Install and configure kubectl
@@ -78,7 +77,6 @@ jobs:
     # 매니페스트 이미지 업데이트
     - name: Update Kubernetes manifests
       env:
-        ECR_REGISTRY: ${{ steps.login-ecr.outputs.registry }}
         ECR_REPOSITORY: ${{ secrets.ECR_REPOSITORY }}
         IMAGE_TAG: ${{ github.run_number }}  # github.sha 대신 run_number 사용 (일관성)
       run: |
@@ -88,9 +86,9 @@ jobs:
         ls -la custom-k8s-spec/
         
         # 이미지 업데이트
-        sed -i "s|image:.*vote.*|image: $ECR_REGISTRY/$ECR_REPOSITORY:vote-$IMAGE_TAG|g" custom-k8s-spec/05-vote-deployment.yaml
-        sed -i "s|image:.*result.*|image: $ECR_REGISTRY/$ECR_REPOSITORY:result-$IMAGE_TAG|g" custom-k8s-spec/07-result-deployment.yaml
-        sed -i "s|image:.*worker.*|image: $ECR_REGISTRY/$ECR_REPOSITORY:worker-$IMAGE_TAG|g" custom-k8s-spec/09-worker-deployment.yaml
+        sed -i "s|image:.*vote.*|image: $ECR_REPOSITORY:vote-$IMAGE_TAG|g" custom-k8s-spec/05-vote-deployment.yaml
+        sed -i "s|image:.*result.*|image: $ECR_REPOSITORY:result-$IMAGE_TAG|g" custom-k8s-spec/07-result-deployment.yaml
+        sed -i "s|image:.*worker.*|image: $ECR_REPOSITORY:worker-$IMAGE_TAG|g" custom-k8s-spec/09-worker-deployment.yaml
 
         # 변경사항 확인
         echo "Updated vote deployment:"
