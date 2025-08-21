@@ -67,9 +67,7 @@ jobs:
         SECURE_API_TOKEN="$SYSDIG_API_TOKEN" sysdig-cli-scanner \
           --apiurl "$SYSDIG_SECURE_ENDPOINT" \
           --console-log \
-          --severity-at-least medium \
-          --format json \
-          --output-file vote-scan-results.json \
+          --json-scan-result vote-scan-results.json \
           "$ECR_REPOSITORY:vote-$IMAGE_TAG" || echo "Vote scan completed with findings"
 
     # Sysdig 이미지 스캔 - Result 앱
@@ -84,9 +82,7 @@ jobs:
         SECURE_API_TOKEN="$SYSDIG_API_TOKEN" sysdig-cli-scanner \
           --apiurl "$SYSDIG_SECURE_ENDPOINT" \
           --console-log \
-          --severity-at-least medium \
-          --format json \
-          --output-file result-scan-results.json \
+          --json-scan-result result-scan-results.json \
           "$ECR_REPOSITORY:result-$IMAGE_TAG" || echo "Result scan completed with findings"
 
     # Sysdig 이미지 스캔 - Worker 앱
@@ -102,8 +98,7 @@ jobs:
           --apiurl "$SYSDIG_SECURE_ENDPOINT" \
           --console-log \
           --severity-at-least medium \
-          --format json \
-          --output-file worker-scan-results.json \
+          --json-scan-result worker-scan-results.json \
           "$ECR_REPOSITORY:worker-$IMAGE_TAG" || echo "Worker scan completed with findings"
 
     # 스캔 결과 요약
