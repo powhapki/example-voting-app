@@ -30,7 +30,7 @@ jobs:
       run: |
         IMAGE_TAG=${{ github.run_number }}
         REGION=ap-northeast-2
-        REPO_URI=${{ secrets.ECR_REPOSITORY_URI }}
+        REPO_URI=${{ secrets.ECR_REPOSITORY }}
 
         docker build -t vote ./vote
         docker tag vote:latest $REPO_URI:vote-$IMAGE_TAG
@@ -62,7 +62,7 @@ jobs:
       run: |
         IMAGE_TAG=${{ github.sha }}
         REGION=ap-northeast-2
-        REPO_URI=${{ secrets.ECR_REPOSITORY_URI }}
+        REPO_URI=${{ secrets.ECR_REPOSITORY }}
 
         sed -i "s|image:.*vote.*|image: $REPO_URI:vote-$IMAGE_TAG|g" custom-k8s-spec/05-vote-deployment.yaml
         sed -i "s|image:.*result.*|image: $REPO_URI:result-$IMAGE_TAG|g" custom-k8s-spec/07-result-deployment.yaml
