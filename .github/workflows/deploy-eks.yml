@@ -1,4 +1,4 @@
-name: Deploy to AWS EKS
+name: Deploy to EKS with ECR
 
 on:
   push:
@@ -6,36 +6,45 @@ on:
 
 jobs:
   deploy:
-    name: Deploy voting app to EKS
     runs-on: ubuntu-latest
 
     steps:
     - name: Checkout code
       uses: actions/checkout@v3
 
+    # AWS 인증
     - name: Configure AWS credentials
       uses: aws-actions/configure-aws-credentials@v1
       with:
         aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
         aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
-        aws-region: ${{ secrets.AWS_REGION }}
+        aws-region: ap-northeast-2
 
+    # ECR 로그인
     - name: Login to Amazon ECR
       id: login-ecr
       uses: aws-actions/amazon-ecr-login@v1
 
-    - name: Build, tag, and push Docker images
+    # 이미지 빌드 & Push
+    - name: Build and Push Docker images
       run: |
         IMAGE_TAG=${{ github.sha }}
-        REPO=${{ secrets.ECR_REPOSITORY }}
-        REGISTRY=${{ steps.login-ecr.outputs.registry }}
-        docker build -t vote ./vote
-        docker tag vote $REGISTRY/$REPO:vote-$IMAGE_TAG
-        docker push $REGISTRY/$REPO:vote-$IMAGE_TAG
-        docker build -t result ./result
-        docker tag result $REGISTRY/$REPO:result-$IMAGE_TAG
-        docker push $REGISTRY/$REPO:result-$IMAGE_TAG
+        REGION=ap-northeast-2
+        REPO_URI=${{ secrets.ECR_REPOSITORY_URI }}
 
+        docker build -t vote ./vote
+        docker tag dockersamples/examplevotingapp_vote:latest $REPO_URI:vote-$IMAGE_TAG
+        docker push $REPO_URI:vote-$IMAGE_TAG
+
+        docker build -t result ./result
+        docker tag dockersamples/examplevotingapp_result:latest $REPO_URI:result-$IMAGE_TAG
+        docker push $REPO_URI:result-$IMAGE_TAG
+
+        docker build -t worker ./worker
+        docker tag dockersamples/examplevotingapp_worker:latest $REPO_URI:worker-$IMAGE_TAG
+        docker push $REPO_URI:worker-$IMAGE_TAG
+
+    # kubectl 설정
     - name: Setup kubectl, aws-iam-authenticator
       uses: kodermax/kubectl-aws-eks@v1
       with:
@@ -43,25 +52,26 @@ jobs:
       env:
         KUBE_CONFIG_DATA: ${{ secrets.KUBE_CONFIG_DATA }}
 
-    - name: Update image tags in K8s manifests
+
+    - name: Configure kubeconfig
+      run: |
+        echo "${{ secrets.KUBE_CONFIG_DATA }}" | base64 --decode > $HOME/.kube/config
+
+    # 매니페스트 이미지 업데이트
+    - name: Update Kubernetes manifests
       run: |
         IMAGE_TAG=${{ github.sha }}
-        REPO=${{ secrets.ECR_REPOSITORY }}
-        REGISTRY=${{ steps.login-ecr.outputs.registry }}
-        sed -i -e "s|image:.*vote.*|image: $REGISTRY/$REPO:vote-$IMAGE_TAG|g" custom-k8s-spec/05-vote-deployment.yaml
-        sed -i -e "s|image:.*result.*|image: $REGISTRY/$REPO:result-$IMAGE_TAG|g" custom-k8s-spec/07-result-deployment.yaml
-        sed -i -e "s|image:.*result.*|image: $REGISTRY/$REPO:worker-$IMAGE_TAG|g" custom-k8s-spec/09-worker-deployment.yaml
+        REGION=ap-northeast-2
+        REPO_URI=${{ secrets.ECR_REPOSITORY_URI }}
 
+        sed -i "s|image:.*vote.*|image: $REPO_URI:vote-$IMAGE_TAG|g" custom-k8s-spec/05-vote-deployment.yaml
+        sed -i "s|image:.*result.*|image: $REPO_URI:result-$IMAGE_TAG|g" custom-k8s-spec/07-result-deployment.yaml
+        sed -i "s|image:.*worker.*|image: $REPO_URI:worker-$IMAGE_TAG|g" custom-k8s-spec/09-worker-deployment.yaml
+
+    # 배포
     - name: Deploy to EKS
-      uses: kodermax/kubectl-aws-eks@v1
-      env:
-        KUBE_CONFIG_DATA: ${{ secrets.KUBE_CONFIG_DATA }}
-      with:
-        args: apply -f custom-k8s-spec/
-
-    - name: Confirm rollout status
-      uses: kodermax/kubectl-aws-eks@v1
-      env:
-        KUBE_CONFIG_DATA: ${{ secrets.KUBE_CONFIG_DATA }}
-      with:
-        args: rollout status deployment/vote
+      run: |
+        kubectl apply -f custom-k8s-spec/
+        kubectl rollout status deployment/vote
+        kubectl rollout status deployment/result
+        kubectl rollout status deployment/worker
