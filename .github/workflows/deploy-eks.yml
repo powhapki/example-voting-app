@@ -62,6 +62,7 @@ jobs:
         sudo mv kubectl /usr/local/bin/
         # kubeconfig 설정
         mkdir -p $HOME/.kube
+        echo "${{ secrets.KUBE_CONFIG_DATA }}" | base64 --decode > $HOME/.kube/config
         chmod 600 $HOME/.kube/config
     
     # EKS 클러스터 컨텍스트 업데이트 (선택사항 - 클러스터명이 있는 경우)
