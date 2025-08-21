@@ -1,4 +1,4 @@
-name: Deploy to EKS with ECR
+name: Deploy to EKS with ECR and Security Scan
 
 on:
   push:
@@ -47,6 +47,97 @@ jobs:
         docker build -t worker ./worker
         docker tag worker:latest $ECR_REPOSITORY:worker-$IMAGE_TAG
         docker push $ECR_REPOSITORY:worker-$IMAGE_TAG
+
+    # Sysdig CLI Scanner 설치
+    - name: Install Sysdig CLI Scanner
+      run: |
+        curl -LO "https://download.sysdig.com/scanning/bin/sysdig-cli-scanner/$(curl -L -s https://download.sysdig.com/scanning/sysdig-cli-scanner/latest_version.txt)/linux/amd64/sysdig-cli-scanner"
+        chmod +x sysdig-cli-scanner
+        sudo mv sysdig-cli-scanner /usr/local/bin/
+
+    # Sysdig 이미지 스캔 - Vote 앱
+    - name: Scan Vote Image with Sysdig
+      env:
+        SYSDIG_API_TOKEN: ${{ secrets.SYSDIG_API_TOKEN }}
+        SYSDIG_SECURE_ENDPOINT: ${{ secrets.SYSDIG_SECURE_ENDPOINT }}
+        ECR_REPOSITORY: ${{ secrets.ECR_REPOSITORY }}
+        IMAGE_TAG: ${{ github.run_number }}
+      run: |
+        echo "Scanning vote image..."
+        sysdig-cli-scanner \
+          --api-token "$SYSDIG_API_TOKEN" \
+          --secure-endpoint "$SYSDIG_SECURE_ENDPOINT" \
+          --console-log \
+          --severity-at-least medium \
+          --format json \
+          --output-file vote-scan-results.json \
+          "$ECR_REPOSITORY:vote-$IMAGE_TAG" || echo "Vote scan completed with findings"
+
+    # Sysdig 이미지 스캔 - Result 앱
+    - name: Scan Result Image with Sysdig
+      env:
+        SYSDIG_API_TOKEN: ${{ secrets.SYSDIG_API_TOKEN }}
+        SYSDIG_SECURE_ENDPOINT: ${{ secrets.SYSDIG_SECURE_ENDPOINT }}
+        ECR_REPOSITORY: ${{ secrets.ECR_REPOSITORY }}
+        IMAGE_TAG: ${{ github.run_number }}
+      run: |
+        echo "Scanning result image..."
+        sysdig-cli-scanner \
+          --api-token "$SYSDIG_API_TOKEN" \
+          --secure-endpoint "$SYSDIG_SECURE_ENDPOINT" \
+          --console-log \
+          --severity-at-least medium \
+          --format json \
+          --output-file result-scan-results.json \
+          "$ECR_REPOSITORY:result-$IMAGE_TAG" || echo "Result scan completed with findings"
+
+    # Sysdig 이미지 스캔 - Worker 앱
+    - name: Scan Worker Image with Sysdig
+      env:
+        SYSDIG_API_TOKEN: ${{ secrets.SYSDIG_API_TOKEN }}
+        SYSDIG_SECURE_ENDPOINT: ${{ secrets.SYSDIG_SECURE_ENDPOINT }}
+        ECR_REPOSITORY: ${{ secrets.ECR_REPOSITORY }}
+        IMAGE_TAG: ${{ github.run_number }}
+      run: |
+        echo "Scanning worker image..."
+        sysdig-cli-scanner \
+          --api-token "$SYSDIG_API_TOKEN" \
+          --secure-endpoint "$SYSDIG_SECURE_ENDPOINT" \
+          --console-log \
+          --severity-at-least medium \
+          --format json \
+          --output-file worker-scan-results.json \
+          "$ECR_REPOSITORY:worker-$IMAGE_TAG" || echo "Worker scan completed with findings"
+
+    # 스캔 결과 요약
+    - name: Display Scan Results Summary
+      run: |
+        echo "=== Security Scan Results Summary ==="
+        
+        if [ -f vote-scan-results.json ]; then
+          echo "Vote Image Scan Results:"
+          cat vote-scan-results.json | jq '.summary // "No summary available"' || echo "Failed to parse vote scan results"
+        fi
+        
+        if [ -f result-scan-results.json ]; then
+          echo "Result Image Scan Results:"
+          cat result-scan-results.json | jq '.summary // "No summary available"' || echo "Failed to parse result scan results"
+        fi
+        
+        if [ -f worker-scan-results.json ]; then
+          echo "Worker Image Scan Results:"
+          cat worker-scan-results.json | jq '.summary // "No summary available"' || echo "Failed to parse worker scan results"
+        fi
+
+    # 스캔 결과를 아티팩트로 업로드
+    - name: Upload Scan Results
+      uses: actions/upload-artifact@v4
+      if: always()
+      with:
+        name: sysdig-scan-results-${{ github.run_number }}
+        path: |
+          *-scan-results.json
+        retention-days: 30
 
     # kubectl 설치 및 설정 (더 안정적인 방법)
     - name: Configure AWS Credentials
@@ -113,4 +204,4 @@ jobs:
         echo "Deployment completed successfully!"
         kubectl get pods -l app=vote -n voting-app 
         kubectl get pods -l app=result -n voting-app 
-        kubectl get pods -l app=worker -n voting-app 
+        kubectl get pods -l app=worker -n voting-app
