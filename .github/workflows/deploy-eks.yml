@@ -33,15 +33,15 @@ jobs:
         REPO_URI=${{ secrets.ECR_REPOSITORY_URI }}
 
         docker build -t vote ./vote
-        docker tag dockersamples/examplevotingapp_vote:latest $REPO_URI:vote-$IMAGE_TAG
+        docker tag vote:latest $REPO_URI:vote-$IMAGE_TAG
         docker push $REPO_URI:vote-$IMAGE_TAG
 
         docker build -t result ./result
-        docker tag dockersamples/examplevotingapp_result:latest $REPO_URI:result-$IMAGE_TAG
+        docker tag result:latest $REPO_URI:result-$IMAGE_TAG
         docker push $REPO_URI:result-$IMAGE_TAG
 
         docker build -t worker ./worker
-        docker tag dockersamples/examplevotingapp_worker:latest $REPO_URI:worker-$IMAGE_TAG
+        docker tag worker:latest $REPO_URI:worker-$IMAGE_TAG
         docker push $REPO_URI:worker-$IMAGE_TAG
 
     # kubectl 설정
