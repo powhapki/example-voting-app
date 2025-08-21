@@ -64,9 +64,8 @@ jobs:
         IMAGE_TAG: ${{ github.run_number }}
       run: |
         echo "Scanning vote image..."
-        sysdig-cli-scanner \
-          --api-token "$SYSDIG_API_TOKEN" \
-          --secure-endpoint "$SYSDIG_SECURE_ENDPOINT" \
+        SECURE_API_TOKEN="$SYSDIG_API_TOKEN" sysdig-cli-scanner \
+          --apiurl "$SYSDIG_SECURE_ENDPOINT" \
           --console-log \
           --severity-at-least medium \
           --format json \
@@ -82,9 +81,8 @@ jobs:
         IMAGE_TAG: ${{ github.run_number }}
       run: |
         echo "Scanning result image..."
-        sysdig-cli-scanner \
-          --api-token "$SYSDIG_API_TOKEN" \
-          --secure-endpoint "$SYSDIG_SECURE_ENDPOINT" \
+        SECURE_API_TOKEN="$SYSDIG_API_TOKEN" sysdig-cli-scanner \
+          --apiurl "$SYSDIG_SECURE_ENDPOINT" \
           --console-log \
           --severity-at-least medium \
           --format json \
@@ -100,9 +98,8 @@ jobs:
         IMAGE_TAG: ${{ github.run_number }}
       run: |
         echo "Scanning worker image..."
-        sysdig-cli-scanner \
-          --api-token "$SYSDIG_API_TOKEN" \
-          --secure-endpoint "$SYSDIG_SECURE_ENDPOINT" \
+        SECURE_API_TOKEN="$SYSDIG_API_TOKEN" sysdig-cli-scanner \
+          --apiurl "$SYSDIG_SECURE_ENDPOINT" \
           --console-log \
           --severity-at-least medium \
           --format json \
